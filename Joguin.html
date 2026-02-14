@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Jogo da Velha Infinito</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 { color: #38bdf8; margin-bottom: 10px; }
+        #status { margin-bottom: 20px; font-size: 1.2rem; height: 1.5rem; font-weight: bold; }
+
+        .tabuleiro {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+        }
+
+        .celula {
+            width: 100px;
+            height: 100px;
+            background-color: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .celula:hover { background-color: #334155; transform: scale(1.05); }
+        .celula.x { color: #f43f5e; }
+        .celula.o { color: #10b981; }
+
+        /* Efeito de flash quando reseta */
+        .reset-flash { animation: flash 0.5s; }
+        @keyframes flash {
+            0% { background-color: #1e293b; }
+            50% { background-color: #f43f5e; }
+            100% { background-color: #1e293b; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>O Jogo Infinito</h1>
+    <div id="status">Sua vez, humano...</div>
+
+    <div class="tabuleiro" id="tabuleiro">
+        <div class="celula" data-index="0"></div>
+        <div class="celula" data-index="1"></div>
+        <div class="celula" data-index="2"></div>
+        <div class="celula" data-index="3"></div>
+        <div class="celula" data-index="4"></div>
+        <div class="celula" data-index="5"></div>
+        <div class="celula" data-index="6"></div>
+        <div class="celula" data-index="7"></div>
+        <div class="celula" data-index="8"></div>
+    </div>
+
+    <script>
+        const status = document.getElementById('status');
+        const celulas = document.querySelectorAll('.celula');
+        let estadoJogo = ["", "", "", "", "", "", "", "", ""];
+        let jogoAtivo = true;
+        
+        const combos = [
+            [0,1,2], [3,4,5], [6,7,8], [0,3,6], [1,4,7], [2,5,8], [0,4,8], [2,4,6]
+        ];
+
+        celulas.forEach(c => c.addEventListener('click', () => cliqueHumano(c)));
+
+        function cliqueHumano(celula) {
+            const i = celula.dataset.index;
+            if (estadoJogo[i] !== "" || !jogoAtivo) return;
+
+            estadoJogo[i] = "X";
+            atualizarUI();
+
+            if (checarVitoria("X")) {
+                trapacear(); // Se o humano ganhar, a IA rouba
+                return;
+            }
+
+            if (tabuleiroCheio()) {
+                reiniciarAutomatico("Empate? Tente ser mais rápido na próxima.");
+                return;
+            }
+
+            status.innerText = "Computador calculando sua derrota...";
+            setTimeout(jogadaIA, 400);
+        }
+
+        function jogadaIA() {
+            if (!jogoAtivo) return;
+
+            // IA tenta ganhar ou bloquear
+            let index = buscarMelhorMovimento("O") || buscarMelhorMovimento("X") || 
+                        (estadoJogo[4] === "" ? 4 : estadoJogo.findIndex(v => v === ""));
+
+            if (index !== -1 && index !== undefined) {
+                estadoJogo[index] = "O";
+                atualizarUI();
+
+                if (checarVitoria("O")) {
+                    status.innerText = "EU GANHEI! Reiniciando para te humilhar de novo...";
+                    setTimeout(() => reiniciarAutomatico("Sua vez... de novo."), 2000);
+                } else if (tabuleiroCheio()) {
+                    reiniciarAutomatico("Tabuleio cheio. Reiniciando...");
+                } else {
+                    status.innerText = "Sua vez...";
+                }
+            }
+        }
+
+        function buscarMelhorMovimento(p) {
+            for (let c of combos) {
+                let v = [estadoJogo[c[0]], estadoJogo[c[1]], estadoJogo[c[2]]];
+                if (v.filter(x => x === p).length === 2 && v.filter(x => x === "").length === 1) {
+                    return c[v.indexOf("")];
+                }
+            }
+            return null;
+        }
+
+        function tabuleiroCheio() {
+            return !estadoJogo.includes("");
+        }
+
+        function trapacear() {
+            status.innerText = "SISTEMA: Detectada falha na realidade.";
+            setTimeout(() => {
+                estadoJogo = estadoJogo.map(v => v === "X" ? "O" : v);
+                atualizarUI();
+                status.innerText = "Na verdade, eu ganhei. Reiniciando...";
+                setTimeout(() => reiniciarAutomatico("Tente novamente."), 1500);
+            }, 700);
+        }
+
+        function reiniciarAutomatico(msg) {
+            jogoAtivo = false;
+            status.innerText = msg;
+            
+            // Adiciona efeito visual de reset
+            celulas.forEach(c => c.classList.add('reset-flash'));
+
+            setTimeout(() => {
+                estadoJogo = ["", "", "", "", "", "", "", "", ""];
+                atualizarUI();
+                celulas.forEach(c => c.classList.remove('reset-flash'));
+                status.innerText = "Sua vez, humano...";
+                jogoAtivo = true;
+            }, 1000);
+        }
+
+        function checarVitoria(p) {
+            return combos.some(c => c.every(i => estadoJogo[i] === p));
+        }
+
+        function atualizarUI() {
+            celulas.forEach((c, i) => {
+                c.innerText = estadoJogo[i];
+                c.className = `celula ${estadoJogo[i].toLowerCase()}`;
+            });
+        }
+    </script>
+</body>
+</html>
